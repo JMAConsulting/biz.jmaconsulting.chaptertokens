@@ -6,7 +6,7 @@ use CRM_Chaptertokens_ExtensionUtil as E;
 /**
  * Implements hook_civicrm_config().
  *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_config/ 
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_config/
  */
 function chaptertokens_civicrm_config(&$config) {
   _chaptertokens_civix_civicrm_config($config);
@@ -139,6 +139,43 @@ function chaptertokens_civicrm_entityTypes(&$entityTypes) {
  */
 function chaptertokens_civicrm_themes(&$themes) {
   _chaptertokens_civix_civicrm_themes($themes);
+}
+
+function chaptertokens_civicrm_alterMailParams(&$params, $context) {
+  if ($params['messageTemplateID'] == 69) {
+    if (!empty($params['contactID'])) {
+      $params = array(
+        'version' => 3,
+        'contact_id' => $params['contactID'],
+        'sequential' => 1,
+        'is_test' => 0,
+        'options' => array('limit' => 1, 'sort' => 'end_date DESC'),
+        'return' => array(CAGIS_CHAPTER),
+      );
+      try {
+        $membership = civicrm_api3('membership', 'getsingle', $params);
+        if (!empty($membership[CAGIS_CHAPTER])) {
+          $chapters = CRM_Core_OptionGroup::values('cagis_chapter');
+          $membership[CAGIS_CHAPTER] = $chapters[$membership[CAGIS_CHAPTER]];
+          $org = CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_contact WHERE organization_name = %1", [1 => [$membership[CAGIS_CHAPTER], 'String']]);
+
+          // Retrieve the Chapter Information.
+          $information = CRM_Core_DAO::executeQuery("SELECT email FROM civicrm_email e WHERE e.contact_id = %1 AND e.is_primary = 1", [1 => [$org, "Integer"]])->fetchAll();
+          if ($information[0]['email']) {
+            $name = $membership[CAGIS_CHAPTER] ? '"' . $membership[CAGIS_CHAPTER] .'"' : '';
+            $params['cc'] = sprintf('%s <%s>', $name, $information[0]['email']);
+          }
+        }
+      } catch (Exception $e) {}
+    }
+
+    $attachment = array(
+      'fullPath' => '/home/cagis.jmaconsulting.biz/htdocs/wp-content/uploads/civicrm/custom/WAIVER.pdf',
+      'mime_type' => 'application/pdf',
+      'cleanName' => 'WAIVER.pdf',
+    );
+    $params['attachments'] = array($attachment);
+  }
 }
 
 
