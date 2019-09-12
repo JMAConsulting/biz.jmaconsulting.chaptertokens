@@ -143,6 +143,7 @@ function chaptertokens_civicrm_themes(&$themes) {
 
 function chaptertokens_civicrm_alterMailParams(&$params, $context) {
   if ($params['messageTemplateID'] == 69) {
+	$cc = [];
     if (!empty($params['contactID'])) {
       $params = array(
         'version' => 3,
@@ -163,18 +164,37 @@ function chaptertokens_civicrm_alterMailParams(&$params, $context) {
           $information = CRM_Core_DAO::executeQuery("SELECT email FROM civicrm_email e WHERE e.contact_id = %1 AND e.is_primary = 1", [1 => [$org, "Integer"]])->fetchAll();
           if ($information[0]['email']) {
             $name = $membership[CAGIS_CHAPTER] ? '"' . $membership[CAGIS_CHAPTER] .'"' : '';
-            $params['cc'] = sprintf('%s <%s>', $name, $information[0]['email']);
+			$cc = $information[0]['email'];
+            //$params['cc'] = sprintf('%s <%s>', $name, $information[0]['email']);
           }
+			
+		  // Retrieve chapter admin information.
+		  $chapterAdmin = CRM_Core_DAO::singleValueQuery("SELECT GROUP_CONCAT(e.email) FROM civicrm_email e
+          INNER JOIN civicrm_value_chapter_admin_9 a ON a.entity_id = e.contact_id WHERE a.administrator_for_chapter_35 = %1 AND e.is_primary = 1", [1 => [$org, 'Integer']]);
+		  if (!empty($chapterAdmin)) {
+		    $params['cc'] = $cc . ',' . $chapterAdmin;
+		  }
         }
-      } catch (Exception $e) {}
+      } catch (CRM_Core_Exception $e) {
+         $errorMessage = $e->getMessage();
+    $errorCode = $e->getErrorCode();
+    $errorData = $e->getExtraParams();
+    $debug = [
+      'is_error' => 1,
+      'error_message' => $errorMessage,
+      'error_code' => $errorCode,
+      'error_data' => $errorData,
+    ];
+CRM_Core_Error::debug_var('chaptertokens', $debug);
+}
     }
-
     $attachment = array(
-      'fullPath' => '/home/cagis.jmaconsulting.biz/htdocs/wp-content/uploads/civicrm/custom/WAIVER.pdf',
+      'fullPath' => '/home/girlsinscience.ca/htdocs/wp-content/uploads/civicrm/custom/WAIVER.pdf',
       'mime_type' => 'application/pdf',
       'cleanName' => 'WAIVER.pdf',
     );
     $params['attachments'] = array($attachment);
+CRM_Core_Error::debug_var('chaptertokenparam', $params);
   }
 }
 

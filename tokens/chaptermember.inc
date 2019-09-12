@@ -55,7 +55,7 @@
 
         // Get chapter admins
         $chapterAdmin = CRM_Core_DAO::singleValueQuery("SELECT GROUP_CONCAT(c.display_name SEPARATOR ' and ') FROM civicrm_contact c
-          INNER JOIN civicrm_value_chapter_admin_9 a ON a.entity_id = c.id WHERE a.	administrator_for_chapter_35 = %1", [1 => [$org, 'Integer']]);
+          INNER JOIN civicrm_value_chapter_admin_9 a ON a.entity_id = c.id WHERE a.administrator_for_chapter_35 = %1", [1 => [$org, 'Integer']]);
         if (!empty($chapterAdmin)) {
           if (strpos($chapterAdmin, ' and ') !== false) {
             $membership['chapteradmin_coordinator_text'] = "coordinators are " . $chapterAdmin;
