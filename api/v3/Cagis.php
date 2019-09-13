@@ -35,7 +35,10 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
     WHERE m.status_id = 1 AND m.membership_type_id IN (1,2,3,4) AND (cm.membership_card_sent_70 <> 1 OR cm.membership_card_sent_70 IS NULL)
     GROUP BY m.contact_id")->fetchAll();
   foreach ($validContacts as $contact) {
-    $cc = [];
+    $cc = [
+      'larissa.vingilis.jaremko@gmail.com',
+      'mkzcatherine@gmail.com',
+    ];
     $emailParams = [
       'contact_id' => $contact['contact_id'],
       'template_id' => 69,
@@ -45,9 +48,9 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
     if (!empty($contact['chapter_email'])) {
       $cc[] = $contact['chapter_email'];
     }
-    if (!empty($contact['admin_email'])) {
+    /*if (!empty($contact['admin_email'])) {
       $cc[] = $contact['admin_email'];
-    }
+    }*/
     if (!empty($cc)) {
       $emailParams['cc'] = implode(',', $cc);
     }
