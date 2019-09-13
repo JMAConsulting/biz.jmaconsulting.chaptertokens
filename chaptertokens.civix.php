@@ -1,7 +1,6 @@
 <?php
   require_once 'chaptermember.variables.inc';
 
-
 // AUTO-GENERATED FILE -- Civix may overwrite any changes made to this file
 
 /**

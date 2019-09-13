@@ -142,56 +142,7 @@ function chaptertokens_civicrm_themes(&$themes) {
 }
 
 function chaptertokens_civicrm_alterMailParams(&$params, $context) {
-  if ($params['messageTemplateID'] == 69) {
-    if (empty($params['contactID'])) {
-      $toEmail = $params['toEmail'];
-      $params['contactID'] = CRM_Core_DAO::singleValueQuery("SELECT contact_id FROM civicrm_email WHERE email = '$toEmail'");
-    }
-    if (!empty($params['contactID'])) {
-      $memparams = array(
-        'version' => 3,
-        'contact_id' => $params['contactID'],
-        'sequential' => 1,
-        'is_test' => 0,
-        'options' => array('limit' => 1, 'sort' => 'end_date DESC'),
-        'return' => array(CAGIS_CHAPTER),
-      );
-      try {
-        $membership = civicrm_api3('membership', 'getsingle', $memparams);
-        if (!empty($membership[CAGIS_CHAPTER])) {
-          $chapters = CRM_Core_OptionGroup::values('cagis_chapter');
-          $membership[CAGIS_CHAPTER] = $chapters[$membership[CAGIS_CHAPTER]];
-          $org = CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_contact WHERE organization_name = '$membership[CAGIS_CHAPTER]'");
-
-          if (!empty($org)) {
-            // Retrieve the Chapter Information.
-            $information = CRM_Core_DAO::executeQuery("SELECT email FROM civicrm_email e WHERE e.contact_id = $org AND e.is_primary = 1")->fetchAll();
-            if ($information[0]['email']) {
-              $name = $membership[CAGIS_CHAPTER] ? '"' . $membership[CAGIS_CHAPTER] . '"' : '';
-              $cc = $information[0]['email'];
-            }
-
-            // Retrieve chapter admin information.
-            $chapterAdmin = CRM_Core_DAO::singleValueQuery("SELECT GROUP_CONCAT(e.email) FROM civicrm_email e
-              INNER JOIN civicrm_value_chapter_admin_9 a ON a.entity_id = e.contact_id WHERE a.administrator_for_chapter_35 = $org AND e.is_primary = 1");
-            if (!empty($chapterAdmin)) {
-              $params['cc'] = $cc . ',' . $chapterAdmin;
-            }
-          }
-        }
-      } catch (CRM_Core_Exception $e) {
-        $errorMessage = $e->getMessage();
-        $errorCode = $e->getErrorCode();
-        $errorData = $e->getExtraParams();
-        $debug = [
-          'is_error' => 1,
-          'error_message' => $errorMessage,
-          'error_code' => $errorCode,
-          'error_data' => $errorData,
-        ];
-        CRM_Core_Error::debug_var('chaptertokens', $debug);
-      }
-    }
+  if (!empty($params['messageTemplateID']) && $params['messageTemplateID'] == 69) {
     $attachment = array(
       'fullPath' => '/home/girlsinscience.ca/htdocs/wp-content/uploads/civicrm/custom/WAIVER.pdf',
       'mime_type' => 'application/pdf',
