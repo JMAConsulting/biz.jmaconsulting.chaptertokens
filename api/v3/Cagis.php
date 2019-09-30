@@ -25,18 +25,20 @@ function _civicrm_api3_cagis_SendMembershipCard_spec(&$spec) {
  */
 function civicrm_api3_cagis_sendMembershipCard($params) {
   // Get memberships that are new and have not been processed.
-  $validContacts = CRM_Core_DAO::executeQuery("SELECT MAX(m.id) as membership_id, m.contact_id, e.email as chapter_email, ce.email as admin_email
+  $validContacts = CRM_Core_DAO::executeQuery("SELECT MAX(m.id) as membership_id, m.contact_id, e.email as chapter_email, ce.email as admin_email, cp.parent_1_email_28 as parent_email
     FROM civicrm_membership m
     INNER JOIN civicrm_value_cagis_members_1 cm ON cm.entity_id = m.id
-    LEFT JOIN civicrm_contact c ON c.organization_name = cm.cagis_chapter_1
+    LEFT JOIN civicrm_option_value cv ON cv.value = cm.cagis_chapter_1 AND cv.option_group_id = 96
+    LEFT JOIN civicrm_contact c ON c.organization_name = cv.label
     LEFT JOIN civicrm_email e ON e.contact_id = c.id AND e.is_primary = 1
     LEFT JOIN civicrm_value_chapter_admin_9 ca ON ca.administrator_for_chapter_35 = c.id
+    LEFT JOIN civicrm_value_parent_child__7 cp ON cp.entity_id = m.contact_id
     LEFT JOIN civicrm_email ce ON ca.entity_id = ce.contact_id AND ce.is_primary = 1 
     WHERE m.status_id = 1 AND m.membership_type_id IN (1,2,3,4) AND (cm.membership_card_sent_70 <> 1 OR cm.membership_card_sent_70 IS NULL)
     GROUP BY m.contact_id")->fetchAll();
   foreach ($validContacts as $contact) {
     $cc = [
-      'larissa.vingilis.jaremko@gmail.com',
+      'cagisnational@gmail.com',
       'mkzcatherine@gmail.com',
     ];
     $emailParams = [
@@ -48,9 +50,9 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
     if (!empty($contact['chapter_email'])) {
       $cc[] = $contact['chapter_email'];
     }
-    /*if (!empty($contact['admin_email'])) {
-      $cc[] = $contact['admin_email'];
-    }*/
+    if (!empty($contact['parent_email'])) {
+      $cc[] = $contact['parent_email'];
+    }
     if (!empty($cc)) {
       $emailParams['cc'] = implode(',', $cc);
     }
@@ -59,7 +61,7 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
       if (!$sent['is_error']) {
         $contacts[] = $contact['contact_id'];
         // Process membership too.
-        civicrm_api3('Membership', 'create', ['id' => $contact['membership_id'], 'custom_70' => 1]);
+        civicrm_api3('Membership', 'create', ['id' => $contact['membership_id'], 'custom_70' => 1, 'status_id' => 1]);
       }
     }
     catch (CiviCRM_API3_Exception $e) {

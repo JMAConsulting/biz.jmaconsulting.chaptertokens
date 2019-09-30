@@ -143,12 +143,19 @@ function chaptertokens_civicrm_themes(&$themes) {
 
 function chaptertokens_civicrm_alterMailParams(&$params, $context) {
   if (!empty($params['messageTemplateID']) && $params['messageTemplateID'] == 69) {
-    $attachment = array(
+    $attachment = [
+    [
       'fullPath' => '/home/girlsinscience.ca/htdocs/wp-content/uploads/civicrm/custom/WAIVER.pdf',
       'mime_type' => 'application/pdf',
       'cleanName' => 'WAIVER.pdf',
-    );
-    $params['attachments'] = array($attachment);
+    ],
+    [
+      'fullPath' => '/home/girlsinscience.ca/htdocs/wp-content/uploads/civicrm/custom/CAGIS_ParentGuide.pdf',
+      'mime_type' => 'application/pdf',
+      'cleanName' => 'CAGIS_ParentGuide.pdf',
+    ],
+    ];
+    $params['attachments'] = $attachment;
   }
 }
 

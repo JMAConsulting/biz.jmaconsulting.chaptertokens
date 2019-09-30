@@ -13,7 +13,7 @@ return array (
       'version' => 3,
       'name' => 'Send Membership Cards',
       'description' => 'This service sends out membership cards periodically to new members who have joined the system.',
-      'run_frequency' => 'Daily',
+      'run_frequency' => 'Always',
       'api_entity' => 'Cagis',
       'api_action' => 'sendMembershipCard',
       'parameters' => '',
