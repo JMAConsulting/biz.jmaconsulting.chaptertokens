@@ -33,7 +33,7 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
     LEFT JOIN civicrm_email e ON e.contact_id = c.id AND e.is_primary = 1
     LEFT JOIN civicrm_value_chapter_admin_9 ca ON ca.administrator_for_chapter_35 = c.id
     LEFT JOIN civicrm_value_parent_child__7 cp ON cp.entity_id = m.contact_id
-    LEFT JOIN civicrm_email ce ON ca.entity_id = ce.contact_id AND ce.is_primary = 1 
+    LEFT JOIN civicrm_email ce ON ca.entity_id = ce.contact_id AND ce.is_primary = 1
     WHERE m.status_id = 1 AND m.membership_type_id IN (1,2,3,4) AND (cm.membership_card_sent_70 <> 1 OR cm.membership_card_sent_70 IS NULL)
     GROUP BY m.contact_id")->fetchAll();
   foreach ($validContacts as $contact) {
@@ -57,11 +57,30 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
       $emailParams['cc'] = implode(',', $cc);
     }
     try {
-      $sent = civicrm_api3('Email', 'send', $emailParams);
-      if (!$sent['is_error']) {
-        $contacts[] = $contact['contact_id'];
-        // Process membership too.
-        civicrm_api3('Membership', 'create', ['id' => $contact['membership_id'], 'custom_70' => 1, 'status_id' => 1]);
+      $chapterPresent = FALSE;
+      // check if chapter information is present or not
+      if (!empty($contact['membership_id'])) {
+        $membership = civicrm_api3('membership', 'getsingle', [
+          'id' => $contact['membership_id'],
+          'return' => array(CAGIS_CHAPTER),
+        ]);
+        $chapterPresent = !empty($membership[CAGIS_CHAPTER]) ?: FALSE;
+      }
+
+      // check if any welcome email is already sent to this contact or not
+      $count = civicrm_api3('Activity', 'get', [
+        'source_record_id' => $contact['contact_id'],
+        'subject' => ['LIKE' => '%Welcome to the Canadian Association for Girls in Science (CAGIS)%'],
+      ])['count'];
+
+      // only send membership card when the chpater information is presnt and there was no email sent in past
+      if (($count == 0) && $chapterPresent) {
+        $sent = civicrm_api3('Email', 'send', $emailParams);
+        if (!$sent['is_error']) {
+          $contacts[] = $contact['contact_id'];
+          // Process membership too.
+          civicrm_api3('Membership', 'create', ['id' => $contact['membership_id'], 'custom_70' => 1, 'status_id' => 1]);
+        }
       }
     }
     catch (CiviCRM_API3_Exception $e) {
