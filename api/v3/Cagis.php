@@ -39,7 +39,6 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
   foreach ($validContacts as $contact) {
     $cc = [
       'cagisnational@gmail.com',
-      'mkzcatherine@gmail.com',
     ];
     list($domainFromName, $domainEmail) = CRM_Core_BAO_Domain::getNameAndEmail();
     $emailParams = [
