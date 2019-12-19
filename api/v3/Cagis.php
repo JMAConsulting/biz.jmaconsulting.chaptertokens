@@ -38,7 +38,7 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
     GROUP BY m.contact_id")->fetchAll();
   foreach ($validContacts as $contact) {
     $cc = [
-      'cagisnational@gmail.com',
+      'info@girlsinscience.ca',
     ];
     list($domainFromName, $domainEmail) = CRM_Core_BAO_Domain::getNameAndEmail();
     $emailParams = [
@@ -46,6 +46,7 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
       'template_id' => 69,
       'from_name' => $domainFromName,
       'from_email' => $domainEmail,
+      'bcc' => 'lvj@girlsinscience.ca',
     ];
     if (!empty($contact['chapter_email'])) {
       $cc[] = $contact['chapter_email'];
