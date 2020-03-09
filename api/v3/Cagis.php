@@ -24,8 +24,12 @@ function _civicrm_api3_cagis_SendMembershipCard_spec(&$spec) {
  * @throws API_Exception
  */
 function civicrm_api3_cagis_sendMembershipCard($params) {
+  // for testing purpose
+  $contactIDClause = empty($params['contact_id']) ? '' : " AND m.contact_id = " .  $params['contact_id'];
+
   // Get memberships that are new and have not been processed.
-  $validContacts = CRM_Core_DAO::executeQuery("SELECT MAX(m.id) as membership_id, m.contact_id, e.email as chapter_email, ce.email as admin_email, cp.parent_1_email_28 as parent_email
+  $validContacts = CRM_Core_DAO::executeQuery("
+     SELECT GROUP_CONCAT(DISTINCT m.id) as membership_id, m.contact_id, e.email as chapter_email, ce.email as admin_email, cp.parent_1_email_28 as parent_email, cm.cagis_chapter_1 as chapters
     FROM civicrm_membership m
     INNER JOIN civicrm_value_cagis_members_1 cm ON cm.entity_id = m.id
     LEFT JOIN civicrm_option_value cv ON cv.value = cm.cagis_chapter_1 AND cv.option_group_id = 96
@@ -34,8 +38,9 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
     LEFT JOIN civicrm_value_chapter_admin_9 ca ON ca.administrator_for_chapter_35 = c.id
     LEFT JOIN civicrm_value_parent_child__7 cp ON cp.entity_id = m.contact_id
     LEFT JOIN civicrm_email ce ON ca.entity_id = ce.contact_id AND ce.is_primary = 1
-    WHERE m.status_id = 1 AND m.membership_type_id IN (1,2,3,4) AND (cm.membership_card_sent_70 <> 1 OR cm.membership_card_sent_70 IS NULL)
-    GROUP BY m.contact_id")->fetchAll();
+    WHERE m.status_id = 1 AND (cm.membership_card_sent_70 <> 1 OR cm.membership_card_sent_70 IS NULL) $contactIDClause
+    GROUP BY m.contact_id
+    ")->fetchAll();
   foreach ($validContacts as $contact) {
     $cc = [
       'info@girlsinscience.ca',
@@ -58,16 +63,6 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
       $emailParams['cc'] = implode(',', $cc);
     }
     try {
-      $chapterPresent = FALSE;
-      // check if chapter information is present or not
-      if (!empty($contact['membership_id'])) {
-        $membership = civicrm_api3('membership', 'getsingle', [
-          'id' => $contact['membership_id'],
-          'return' => array(CAGIS_CHAPTER),
-        ]);
-        $chapterPresent = !empty($membership[CAGIS_CHAPTER]) ?: FALSE;
-      }
-
       // check if any welcome email is already sent to this contact or not
       $count = civicrm_api3('Activity', 'get', [
         'source_record_id' => $contact['contact_id'],
@@ -75,12 +70,16 @@ function civicrm_api3_cagis_sendMembershipCard($params) {
       ])['count'];
 
       // only send membership card when the chpater information is presnt and there was no email sent in past
-      if (($count == 0) && $chapterPresent) {
+      if (($count == 0) && (!empty($contact['membership_id']) && !empty($contact['chapters']))) {
         $sent = civicrm_api3('Email', 'send', $emailParams);
         if (!$sent['is_error']) {
           $contacts[] = $contact['contact_id'];
+
+          $membershipIDs = (array) explode(',', $contact['membership_id']);
           // Process membership too.
-          civicrm_api3('Membership', 'create', ['id' => $contact['membership_id'], 'custom_70' => 1, 'status_id' => 1]);
+          foreach ($membershipIDs as $membershipID) {
+            civicrm_api3('Membership', 'create', ['id' => $membershipID, 'custom_70' => 1, 'status_id' => 1]);
+          }
         }
       }
     }

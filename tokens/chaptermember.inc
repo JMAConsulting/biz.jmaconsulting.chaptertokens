@@ -12,58 +12,57 @@
 
   function chaptermember_civitoken_get($cid, &$value, $context){
     chaptermember_get_tokens($cid, $value, FALSE);
-    chaptermember_get_tokens($cid, $value, TRUE);
   }
 
   function chaptermember_get_tokens($cid, &$value, $onlyActive) {
-    $params = array(
-      'version' => 3,
-      'contact_id' => $cid,
-      'sequential' => 1,
-      'is_test' => 0,
-      'options' => array('limit' => 1, 'sort' => 'end_date DESC'),
-      'return' => array(CAGIS_CHAPTER),
-    );
-    if ($onlyActive == TRUE) {
-      $params['is_active'] = 1;
-      $params['active_only'] = 1;
-    }
-
+    $activeClause = $onlyActive ? ' AND m.is_active = 1' : '';
     try {
-      $membership = civicrm_api3('membership', 'getsingle', $params);
-
-      // Get label for chapter
-      if (!empty($membership[CAGIS_CHAPTER])) {
-        $chapters = CRM_Core_OptionGroup::values('cagis_chapter');
-        $membership[CAGIS_CHAPTER] = $chapters[$membership[CAGIS_CHAPTER]];
-
-        // Now retrieve the Chapter Organization
-        $org = CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_contact WHERE organization_name = %1", [1 => [$membership[CAGIS_CHAPTER], 'String']]);
-
-        // Retrieve the Chapter Information.
-        $information = CRM_Core_DAO::executeQuery("SELECT email, phone FROM civicrm_email e
-          LEFT JOIN civicrm_phone p ON p.contact_id = e.contact_id AND p.is_primary = 1
-          WHERE e.contact_id = %1 AND e.is_primary = 1", [1 => [$org, "Integer"]])->fetchAll();
-        if (!empty($information[0])) {
-          $membership['chapteradmin_email'] = $information[0]['email'];
-          $membership['chapteradmin_phone'] = $information[0]['phone'];
+      $results = CRM_Core_DAO::executeQuery("
+         SELECT m.id as membership_id, GROUP_CONCAT(DISTINCT e.email) as chapter_email,
+          GROUP_CONCAT(DISTINCT p.phone) as chapter_phone, GROUP_CONCAT(DISTINCT coordinator.display_name) as chapter_admin
+        FROM civicrm_membership m
+        INNER JOIN civicrm_membership_type mt ON mt.id = m.membership_type_id AND m.is_test = 0
+        INNER JOIN civicrm_value_cagis_members_1 cm ON cm.entity_id = m.id
+        INNER JOIN civicrm_contact org ON org.id = mt.member_of_contact_id
+        LEFT JOIN civicrm_email e ON e.contact_id = org.id
+        LEFT JOIN civicrm_phone p ON p.contact_id = org.id
+        INNER JOIN civicrm_value_chapter_admin_9 ca ON ca.administrator_for_chapter_35 = org.id
+        LEFT JOIN civicrm_contact coordinator ON coordinator.id = ca.entity_id
+        WHERE m.status_id = 1 AND (cm.membership_card_sent_70 <> 1 OR cm.membership_card_sent_70 IS NULL) AND m.contact_id = $cid $activeClause
+        GROUP BY m.contact_id
+        ")->fetchAll();
+      foreach($results as $result) {
+        if (!empty($result['membership_id'])) {
+          $result['chapters'] = (array) civicrm_api3('membership', 'getsingle', [
+            'id' => $result['membership_id'],
+            'return' => array(CAGIS_CHAPTER),
+          ])[CAGIS_CHAPTER];
+          $result['chapters'] = implode(', ', $result['chapters']);
         }
-        else {
-          $membership['chapteradmin_email'] = NULL;
-          $membership['chapteradmin_phone'] = NULL;
+
+        foreach (['chapters', 'chapter_admin', 'chapter_email'] as $column) {
+          if (!empty($result[$column]) && strpos($result[$column], ',') !== FALSE) {
+            $values = (array) explode(',', $result[$column]);
+            $last = array_pop($values);
+            $result[$column] = count($values) ? implode(", ", $values) . " and " . $last : $last;
+          }
         }
 
-        // Get chapter admins
-        $chapterAdmin = CRM_Core_DAO::singleValueQuery("SELECT GROUP_CONCAT(DISTINCT(c.display_name) SEPARATOR ' and ') FROM civicrm_contact c
-          INNER JOIN civicrm_value_chapter_admin_9 a ON a.entity_id = c.id WHERE is_deleted <> 1 AND a.administrator_for_chapter_35 = %1", [1 => [$org, 'Integer']]);
-        if (!empty($chapterAdmin)) {
-          if (strpos($chapterAdmin, ' and ') !== false) {
-            $membership['chapteradmin_coordinator_text'] = "coordinators are " . $chapterAdmin;
+        $membership['chapteradmin_email'] = CRM_Utils_Array::value('chapter_email', $result);
+        $membership['chapteradmin_phone'] = CRM_Utils_Array::value('chapter_phone', $result);
+        $membership[CAGIS_CHAPTER] = CRM_Utils_Array::value('chapters', $result);
+
+        if (!empty($result['chapter_admin'])) {
+          if (strpos($result['chapter_admin'], ' and ') !== FALSE) {
+            $membership['chapteradmin_coordinator_text'] = "coordinators are " . $result['chapter_admin'];
+            if (strpos($result['chapter_admin'], ',') !== FALSE) {
+              $membership['chapteradmin_coordinator_text'] .= ' respectively';
+            }
           }
           else {
-            $membership['chapteradmin_coordinator_text'] = "coordinator is " . $chapterAdmin;
+            $membership['chapteradmin_coordinator_text'] = "coordinator is " . $result['chapter_admin'];
           }
-          $membership['chapteradmin_coordinator_name'] = $chapterAdmin;
+          $membership['chapteradmin_coordinator_name'] = $result['chapter_admin'];
         }
         else {
           $membership['chapteradmin_coordinator_text'] = "coordinator is not allocated yet.";
