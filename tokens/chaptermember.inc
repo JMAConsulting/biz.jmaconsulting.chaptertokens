@@ -71,6 +71,7 @@
       }
     }
     catch (Exception $e) {
+      \Civi::log()->debug('Exception thrown in generating chapter tokens', ['exception Message' => $e->getMessage()]);
       $tokens = array('chapter', 'chapteradmin_email', 'chapteradmin_phone');
       foreach ($tokens as $token) {
         $value['chaptermember.' . $token] = NULL;
